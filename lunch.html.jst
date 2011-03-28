@@ -1,0 +1,50 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+</head>
+<body>
+    <table>
+    <tr>
+        <th>Nazwa</th>
+        <th>Cena</th>
+    </tr>
+    {.section soup}
+        <tr>
+            <th colspan=2>Zupy</th>
+        </tr>
+        {.repeated section items}
+        <tr>
+            <td>{name}</td>
+            <td>{price}</td>
+        </tr>
+        {.end}
+    {.end}
+    <tr>
+        <th colspan=2>Zestawy</th>
+    </tr>
+    {.repeated section combos}
+        <tr>
+            <td>{title}</td>
+            <td>{price}</td>
+        </tr>
+        {.repeated section items}
+        <tr>
+            <td>{name}</td>
+            <td>{price}</td>
+        </tr>
+        {.end}
+    {.end}
+    {.section general}
+        <tr>
+            <th colspan=2>Inne</th>
+        </tr>
+        {.repeated section items}
+        <tr>
+            <td>{name}</td>
+            <td>{price}</td>
+        </tr>
+        {.end}
+    {.end}
+    </table>
+</body>
+</html>

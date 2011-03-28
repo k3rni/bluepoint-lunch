@@ -1,75 +1,69 @@
-from google.appengine.ext import webapp
-from google.appengine.ext.webapp.util import run_wsgi_app
+# encoding: utf-8
 
-from google.appengine.api.urlfetch import fetch
-from google.appengine.api import memcache
 from xml.etree import ElementTree as ET
-import datetime
-import jsontemplate
-import simplejson as json
+import unicodedata
+
+import urllib2
 
 def fetch_lunch():
     #key = datetime.date.today().strftime('lunch_%Y-%m-%d')
     #lunch = memcache.get(key)
     #if lunch is not None:
         #return lunch
-    doc = fetch("http://4smaki.pl/lunch.xml")
-    lunch = parse_lunch(doc.content)
+    doc = urllib2.urlopen("http://4smaki.pl/lunch.xml").read()
     #memcache.set(key, lunch, time=86400)
-    return lunch
+    return doc
+
+def allcaps(text):
+    if not isinstance(text, unicode):
+        text = text.decode('utf-8')
+    # Lu = Letter, uppercase
+    # Zs = Space separator
+    # Po = Punctuation, other
+    # Pd = Punctuation, dash
+    # Nd = Number, decimal
+    # http://www.unicode.org/reports/tr44/tr44-4.html#General_Category_Values
+    return all(unicodedata.category(c) in ('Lu', 'Zs', 'Po', 'Pd', 'Nd') for c in text)
 
 def parse_lunch(data):
     xml = ET.fromstring(data.replace('iso-8859-1', 'utf-8')) # zjebana deklaracja
-    items = []
+    lunch = dict(combos=[], soup=dict(items=[]), general=dict(items=[]))
+    headers_count = 0
+    section = None
     for item in xml.findall('item'):
         lp, cena, nazwa = [item.attrib[k] for k in ('lp', 'cena', 'nazwa')]
-        items.append(dict(cena=cena, nazwa=nazwa))
-    return dict(lunch=items)
+        # Semantyka:
+        # wpisy z * na początku nie należą pod żaden nagłówek, wpisy bez wpadają pod ostatni wczytany
+        # ostatni head jest o kanapkach, nie ma ceny i w sumie nie wiadomo co z nim zrobić
 
-LUNCH = """
-<html>
-<head>
-<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-</head>
-<body>
-    <table>
-    <th>Nazwa</th>
-    <th>Cena</th>
-    {.repeated section lunch}
-        <tr>
-            <td>{nazwa}</td>
-            <td>{cena}</td>
-        </tr>
-    {.end}
-    </table>
-</body>
-</html>
-"""
-LUNCH_T = jsontemplate.Template(LUNCH)
+        # puste linie ignorujemy, obcinamy wszystkie spacje po bokach
+        nazwa = nazwa.strip()
+        if not nazwa: continue
 
-def format_lunch(lunch):
-    return LUNCH_T.expand(lunch)
+        # allcaps są nagłówki. pierwszy nagłówek to zawsze MENU $data
+        if allcaps(nazwa):
+            headers_count += 1
+            if headers_count > 1:
+                section = dict(title=nazwa, price=cena, items=[])
+                lunch['combos'].append(section)
+            continue
 
-class MainPage(webapp.RequestHandler):
-    def get(self):
-        lunch = fetch_lunch()
-        self.response.out.write(format_lunch(lunch).encode('utf-8'))
+        # po nagłówku menu są zupy, potem kolejne nagłówki i ich potrawy
+        if nazwa.startswith("*"):
+            if headers_count == 1:
+                lunch['soup']['items'].append(dict(name=nazwa[1:], price=cena))
+            else:
+                lunch['general']['items'].append(dict(name=nazwa[1:], price=cena))
+        else:
+            section['items'].append(dict(name=nazwa, price=cena))
+            
 
-class LunchJson(webapp.RequestHandler):
-    def get(self):
-        lunch = fetch_lunch()
-        self.response.headers.add_header('Content-Type', 'application/json')
-        self.response.out.write(json.dumps(lunch))
 
-application = webapp.WSGIApplication([
-        ('^/$', MainPage),
-        ('^/lunch.json$', LunchJson),
-        ('^/lunch$', MainPage),
 
-    ], debug=True)
-
-def main():
-    run_wsgi_app(application)
+    return lunch
 
 if __name__ == "__main__":
-    main()
+    import jsontemplate,pprint
+    l = parse_lunch(fetch_lunch())
+    pprint.pprint(l)
+    print jsontemplate.Template(open('lunch.html.jst').read()).expand(l)
