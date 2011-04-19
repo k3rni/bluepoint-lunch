@@ -18,7 +18,6 @@ def cached_fetch_lunch():
     key = lunch_key()
     lunch = memcache.get(key)
     if lunch is None:
-        print "CACHEMISS"
         lunch = parse_lunch(fetch("http://4smaki.pl/lunch.xml").content)
         memcache.set(key, lunch)
     return lunch
