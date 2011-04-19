@@ -2,6 +2,7 @@
 
 from xml.etree import ElementTree as ET
 import unicodedata
+import datetime, re
 
 import urllib2
 
@@ -27,7 +28,7 @@ def allcaps(text):
 
 def parse_lunch(data):
     xml = ET.fromstring(data.replace('iso-8859-1', 'utf-8')) # zjebana deklaracja
-    lunch = dict(combos=[], soup=dict(items=[]), general=dict(items=[]))
+    lunch = dict(combos=[], soup=dict(items=[]), general=dict(items=[]), day=None)
     headers_count = 0
     section = None
     for item in xml.findall('item'):
@@ -40,12 +41,22 @@ def parse_lunch(data):
         nazwa = nazwa.strip()
         if not nazwa: continue
 
+        # czasem im się zdarzy wrzucić cenę do nazwy nagłówka
+        RR = re.compile(ur'(\d+,\d+)zł(/?)')
+        for m in RR.findall(nazwa):
+            cena += ''.join(m)
+        nazwa = RR.sub('', nazwa)
+
         # allcaps są nagłówki. pierwszy nagłówek to zawsze MENU $data
         if allcaps(nazwa):
             headers_count += 1
             if headers_count > 1:
                 section = dict(title=nazwa, price=cena, items=[])
                 lunch['combos'].append(section)
+            else:
+                m = re.search(r'(\d{2})\.(\d{2})\.(\d{4})', nazwa)
+                if m:
+                    lunch['day'] = datetime.date(*[int(d) for d in m.groups()[::-1]]).strftime('%Y-%m-%d')
             continue
 
         # po nagłówku menu są zupy, potem kolejne nagłówki i ich potrawy

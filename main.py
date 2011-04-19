@@ -6,6 +6,7 @@ from google.appengine.api import memcache
 import jsontemplate
 import simplejson as json
 from lunch import parse_lunch
+from lunchdb import fetch_historic_lunch
 import datetime
 
 LUNCH_T = jsontemplate.Template(open('lunch.html.jst').read())
@@ -36,8 +37,31 @@ class LunchJson(webapp.RequestHandler):
         self.response.headers.add_header('Content-Type', 'application/json')
         self.response.out.write(json.dumps(lunch))
 
+class HistoricLunch(webapp.RequestHandler):
+    def get(self, *args):
+        year, month, day = map(int, args)
+        try:
+            lunch = fetch_historic_lunch(year, month, day)
+            self.response.out.write(format_lunch(lunch).encode('utf-8'))
+        except ValueError: # nie ma takiego w historii
+            self.response.out.write('Brak lanczu w bazie')
+            self.response.set_status(404)
+
+class HistoricLunchJson(webapp.RequestHandler):
+    def get(self, *args):
+        year, month, day = map(int, args)
+        try:
+            lunch = fetch_historic_lunch(year, month, day)
+            self.response.headers.add_header('Content-Type', 'application/json')
+            self.response.out.write(json.dumps(lunch))
+        except ValueError:
+            self.response.out.write('{}')
+            self.response.set_status(404)
+
 application = webapp.WSGIApplication([
         ('^/$', MainPage),
+        ('^/(\d{4})-(\d{2})-(\d{2})$', HistoricLunch),
+        ('^/(\d{4})-(\d{2})-(\d{2}).json$', HistoricLunchJson),
         ('^/lunch.json$', LunchJson),
         ('^/lunch$', MainPage),
 
