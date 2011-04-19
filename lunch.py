@@ -42,16 +42,17 @@ def parse_lunch(data):
         if not nazwa: continue
 
         # czasem im się zdarzy wrzucić cenę do nazwy nagłówka
-        RR = re.compile(ur'(\d+,\d+)zł(/?)')
+        RR = re.compile(ur'(/?)(\d+,\d+)((?:zł)?)')
+        n_cena = [cena]
         for m in RR.findall(nazwa):
-            cena += ''.join(m)
-        nazwa = RR.sub('', nazwa)
+            n_cena.append(''.join(m))
+        n_nazwa = RR.sub('', nazwa)
 
         # allcaps są nagłówki. pierwszy nagłówek to zawsze MENU $data
-        if allcaps(nazwa):
+        if allcaps(n_nazwa):
             headers_count += 1
             if headers_count > 1:
-                section = dict(title=nazwa, price=cena, items=[])
+                section = dict(title=n_nazwa, price=' '.join(n_cena), items=[])
                 lunch['combos'].append(section)
             else:
                 m = re.search(r'(\d{2})\.(\d{2})\.(\d{4})', nazwa)
