@@ -28,9 +28,9 @@ def allcaps(text):
 
 def parse_lunch(data):
     xml = ET.fromstring(data.replace('iso-8859-1', 'utf-8')) # zjebana deklaracja
-    lunch = dict(combos=[], soup=dict(items=[]), general=dict(items=[]), day=None)
+    lunch = dict(combos=[], soup=dict(items=[]), general=dict(items=[]), day=None, unknown=dict(items=[]))
     headers_count = 0
-    section = None
+    section = lunch['unknown']
     for item in xml.findall('item'):
         lp, cena, nazwa = [item.attrib[k] for k in ('lp', 'cena', 'nazwa')]
         # Semantyka:
@@ -69,9 +69,6 @@ def parse_lunch(data):
         else:
             section['items'].append(dict(name=nazwa, price=cena))
             
-
-
-
     return lunch
 
 if __name__ == "__main__":
